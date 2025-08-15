@@ -111,37 +111,31 @@ typename MyVector<T>::const_reference MyVector<T>::at( size_type pos ) const {
 
 template <typename T>
 typename MyVector<T>::reference MyVector<T>::operator[]( size_type pos ) {
-    if (pos >= m_size) throw std::out_of_range{"Index out of range"};
     return m_data[pos];
 }
 
 template <typename T>
 typename MyVector<T>::const_reference MyVector<T>::operator[]( size_type pos ) const {
-    if (pos >= m_size) throw std::out_of_range{"Index out of range"};
     return m_data[pos];
 }
 
 template <typename T>
 typename MyVector<T>::reference MyVector<T>::front() {
-    if (m_size == 0) throw std::out_of_range{"The vector is empty"};
     return m_data[0];
 }
 
 template <typename T>
 typename MyVector<T>::const_reference MyVector<T>::front() const {
-    if (m_size == 0) throw std::out_of_range{"The vector is empty"};
     return m_data[0];
 }
 
 template <typename T>
 typename MyVector<T>::reference MyVector<T>::back() {
-    if (m_size == 0) throw std::out_of_range{"The vector is empty"};
     return m_data[m_size - 1];
 }
 
 template <typename T>
 typename MyVector<T>::const_reference MyVector<T>::back() const {
-    if (m_size == 0) throw std::out_of_range{"The vector is empty"};
     return m_data[m_size - 1];
 }
 
@@ -309,7 +303,7 @@ void MyVector<T>::resize( size_type count ) {
         size_type i = m_size;
         try {
             for (; i < count; ++i) {
-                new (m_data + i) T(value);
+                new (m_data + i) T();
             }
         } catch (...) {
             for (size_type j = m_size; j < i; ++j) {
