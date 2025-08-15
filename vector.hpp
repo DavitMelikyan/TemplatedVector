@@ -10,13 +10,15 @@ class MyVector {
 		using value_type = T;
 		using reference = T&;
 		using const_reference = const T&;
-		explicit MyVector();
+		using pointer = T*;
+		using const_pointer = const T*;
+		MyVector();
 		explicit MyVector(size_type size, const value_type& value = T());
 		MyVector(const MyVector& other);
 		MyVector(MyVector&& other) noexcept;
 		MyVector& operator=(const MyVector& other);
-		MyVector& operator=(MyVector&& other);
-		MyVector& operator=( std::initializer_list<value_type> ilist );
+		MyVector& operator=(MyVector&& other) noexcept;
+		MyVector& operator=(const std::initializer_list<value_type>& ilist );
 		~MyVector();
 		
 		reference at( size_type pos );
@@ -27,8 +29,8 @@ class MyVector {
 		const_reference front() const;
 		reference back();
 		const_reference back() const;
-		T* data();
-		const T* data() const;
+		pointer data();
+		const_pointer data() const;
 
 		bool empty() const;
 		size_type size() const;
@@ -36,6 +38,11 @@ class MyVector {
 		size_type capacity() const;
 
 		void clear();
+		void insert(size_type pos, const T& value);
+		void insert(size_type pos, T&& value );
+		void insert(size_type pos, size_t count, const T& value);
+		template<typename... Args>
+		void emplace(size_type pos, Args&&... args );
 		void push_back( const T& value );
 		void push_back( T&& value );
 		template<typename... Args >
