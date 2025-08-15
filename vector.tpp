@@ -16,7 +16,7 @@ MyVector<T>::MyVector(size_type size, const value_type& value) : m_size{size}, m
 	m_data = static_cast<value_type*>(operator new(sizeof(value_type) * m_capacity));
     try {
         std::uninitialized_fill_n(m_data, m_size, value);
-    } catch (std::bad_alloc&) {
+    } catch (...) {
         for (size_type i = 0; i < m_size; ++i) {
             m_data[i].~value_type();
         }
@@ -30,7 +30,7 @@ MyVector<T>::MyVector(const MyVector& other) : m_size{other.m_size}, m_capacity{
 	m_data = static_cast<value_type*>(operator new(sizeof(value_type) * m_capacity));
     try {
         std::uninitialized_copy(other.m_data, other.m_data + m_size, m_data);
-    } catch (std::bad_alloc&) {
+    } catch (...) {
         for (size_type i = 0; i < m_size; ++i) {
             m_data[i].~value_type();
         }
@@ -167,7 +167,7 @@ void MyVector<T>::reserve( size_type new_cap ) {
     pointer new_data = static_cast<pointer>(operator new(new_cap * sizeof(value_type)));
     try {
         std::uninitialized_copy(m_data, m_data + m_size, new_data);
-    } catch (std::bad_alloc&) {
+    } catch (...) {
         for (size_type i = 0; i < m_size; ++i) {
             m_data[i].~value_type();
         }
