@@ -5,42 +5,34 @@
 #include <string>
 #include <exception>
 #include <memory>
-
+#include <vector>
 
 // constructors
 
 template <typename T>
-MyVector<T>::MyVector() : m_size{0}, m_capacity{0}, m_data{nullptr} { }
+MyVector<T>::MyVector() noexcept : m_size{0}, m_capacity{0}, m_data{nullptr} { }
 
 template <typename T>
-MyVector<T>::MyVector(size_type size, const value_type& value) : m_size{0}, m_capacity{size * 2}, m_data{nullptr} {
-	m_data = static_cast<value_type*>(operator new(sizeof(value_type) * m_capacity));
-    value_type* constructed = m_data;
+MyVector<T>::MyVector(size_type size, const value_type& value) : MyVector{} {
+	m_data = static_cast<value_type*>(operator new(sizeof(value_type) * size));
     try {
-        constructed = std::uninitialized_fill_n(m_data, size, value);
+        std::uninitialized_fill_n(m_data, size, value);
         m_size = size;
+        m_capacity = size;
     } catch (...) {
-        size_type count = static_cast<size_type>(constructed - m_data);
-        for (size_type i = 0; i < count; ++i) {
-            m_data[i].~value_type();
-        }
         operator delete(m_data);
         throw;
     }
 }
 
 template <typename T>
-MyVector<T>::MyVector(const MyVector& other) : m_size{0}, m_capacity{other.m_capacity}, m_data{nullptr} {
-	m_data = static_cast<value_type*>(operator new(sizeof(value_type) * m_capacity));
-    value_type* constructed = m_data;
+MyVector<T>::MyVector(const MyVector& other) : MyVector{} {
+	m_data = static_cast<value_type*>(operator new(sizeof(value_type) * other.m_capacity));
     try {
-        constructed = std::uninitialized_copy(other.m_data, other.m_data + other.m_size, m_data);
+        std::uninitialized_copy(other.m_data, other.m_data + other.m_size, m_data);
         m_size = other.m_size;
+        m_capacity = other.m_capacity;
     } catch (...) {
-        size_type count = static_cast<size_type>(constructed - m_data);
-        for (size_type i = 0; i < count; ++i) {
-            m_data[i].~value_type();
-        }
         operator delete(m_data);
         throw;
     }
@@ -54,15 +46,25 @@ MyVector<T>::MyVector(MyVector&& other) noexcept : m_size{other.m_size}, m_capac
 }
 
 template <typename T>
+MyVector<T>::MyVector(const std::initializer_list<T> &il) {
+    m_data = static_cast<T *>(operator new(sizeof(T) * il.size()));
+    try {
+        std::uninitialized_copy(il.begin(), il.end(), m_data);
+        m_capacity = m_size = il.size();
+    }
+    catch (...) {
+        operator delete(m_data);
+        throw;
+    }
+}
+
+template <typename T>
 MyVector<T>& MyVector<T>::operator=(const MyVector<T>& other) {
     if (this == &other) {
 		return *this;
 	}
 	MyVector<value_type> tmp(other);
     swap(tmp);
-    for (size_type i = 0; i < tmp.m_size; ++i) {
-        tmp.m_data[i].~T();
-    }
     return *this;
 }
 
@@ -71,45 +73,21 @@ MyVector<T>& MyVector<T>::operator=(MyVector<T>&& other) noexcept {
     if (this == &other) {
         return *this;
     }
-    for (size_type i = 0; i < m_size; ++i) {
-        m_data[i].~T();
-    }
-	m_size = other.m_size;
-    m_capacity = other.m_capacity;
-    m_data = other.m_data;
-    other.m_data = nullptr;
-    other.m_size = 0;
-    other.m_capacity = 0;
+    MyVector<T> tmp (std::move(other));
+    swap(tmp);
     return *this;
 }
 
 template <typename T>
 MyVector<T>& MyVector<T>::operator=(const std::initializer_list<value_type>& ilist ) {
-    MyVector tmp;
-    tmp.m_capacity = ilist.size() * 2;
-    tmp.m_data = static_cast<value_type*>(operator new(sizeof(value_type) * tmp.m_capacity));
-    tmp.m_size = 0;
-    value_type* constructed = tmp.m_data;
-    try {
-        constructed = std::uninitialized_copy(ilist.begin(), ilist.end(), tmp.m_data);
-        tmp.m_size = ilist.size();
-    } catch (...) {
-        size_type count = static_cast<size_type>(constructed - tmp.m_data);
-        for (size_type i = 0; i < count; ++i) {
-            tmp.m_data[i].~value_type();
-        }
-        operator delete(tmp.m_data);
-        throw;
-    }
+    MyVector<T> tmp(ilist);
     swap(tmp);
     return *this;
 }
 
 template <typename T>
 MyVector<T>::~MyVector() {
-    for (size_type i = 0; i < m_size; ++i) {
-        m_data[i].~T();
-    }
+    clear();
     operator delete(m_data);
 }
 
@@ -170,39 +148,34 @@ typename MyVector<T>::const_pointer MyVector<T>::data() const {
 // capacity
 
 template <typename T>
-bool MyVector<T>::empty() const {
+bool MyVector<T>::empty() const noexcept {
     return m_size == 0;
 }
 
 template <typename T>
-typename MyVector<T>::size_type MyVector<T>::size() const {
+typename MyVector<T>::size_type MyVector<T>::size() const noexcept {
     return m_size;
 }
 
 template <typename T>
 void MyVector<T>::reserve( size_type new_cap ) {
     if (new_cap <= m_capacity) return;
-    value_type* new_data = static_cast<pointer>(operator new(new_cap * sizeof(value_type)));
-    value_type* constructed = new_data;
+    value_type* new_data = static_cast<pointer>(operator new(new_cap * sizeof(T)));
     try {
-        constructed = std::uninitialized_copy(m_data, m_data + m_size, new_data);
+        std::uninitialized_copy(m_data, m_data + m_size, new_data);
     } catch (...) {
-        size_type count = static_cast<size_type>(constructed - new_data);
-        for (size_type i = 0; i < count; ++i) {
-            new_data[i].~value_type();
-        }
         operator delete(new_data);
         throw;
     }
-    for (size_type i = 0; i < m_size; ++i) {
-        m_data[i].~value_type();
-    }
+    size_type tmp = m_size;
+    clear();
     operator delete(m_data);
     m_data = new_data;
     m_capacity = new_cap;
+    m_size = tmp;
 }
 template <typename T>
-typename MyVector<T>::size_type MyVector<T>::capacity() const {
+typename MyVector<T>::size_type MyVector<T>::capacity() const noexcept {
     return m_capacity;
 }
 
@@ -210,209 +183,185 @@ typename MyVector<T>::size_type MyVector<T>::capacity() const {
 
 template <typename T>
 void MyVector<T>::clear() {
+    for (size_type i = 0; i < m_size; ++i) {
+        m_data[i].~T();
+    }
     m_size = 0;
 }
 
 template <typename T>
 void MyVector<T>::insert(size_type pos, const T& value) {
-    if (m_size == 0 || pos == m_size) {
-        push_back(value);
-        return;
+    T* new_data = nullptr;
+    size_type new_capac = m_capacity;
+    if (m_size == m_capacity) {
+        new_data = static_cast<T*>(operator new(sizeof(T) * m_capacity * 2));
+        new_capac = m_size * 2;
+    } else {
+        new_data = static_cast<T*>(operator new(sizeof(T) * m_capacity));
     }
-    if (m_capacity == m_size) reserve(m_capacity * 2 + 1);
-    value_type* new_data = static_cast<value_type*>(operator new(sizeof(value_type) * m_capacity));
-    value_type* constructed = new_data;
+    for (size_type i = 0; i < pos; ++i) {
+        new (new_data[i]) T(std::move(m_data[i]));
+    }
     try {
-        constructed = std::uninitialized_copy(m_data, m_data + pos, new_data);
-        new (static_cast<void*>(constructed)) value_type(value);
-        ++constructed;
-        constructed = std::uninitialized_copy(m_data + pos, m_data + m_size, constructed);
+        new (&new_data[pos]) T(value);
     } catch (...) {
-        size_type count = static_cast<size_type>(constructed - new_data);
-        for (size_type i = 0; i < count; ++i) {
-            new_data[i].~value_type();
+        for (size_type i = 0; i < pos; ++i) {
+            new (m_data[i]) T(std::move(m_data[i - 1]));
         }
         operator delete(new_data);
         throw;
     }
-
-    for (size_type i = 0; i < m_size; ++i) {
-        m_data[i].~value_type();
+    for (size_type i = m_size; i > pos; --i) {
+        new (&new_data[i]) T(std::move(new_data[i - 1]));
     }
     operator delete(m_data);
-
     m_data = new_data;
     ++m_size;
+    m_capacity = new_capac;
 }
 
 template <typename T>
 void MyVector<T>::insert(size_type pos, T&& value ) {
-    if (m_size == 0 || pos == m_size) {
-        push_back(std::move(value));
-        return;
-    }
     if (m_capacity == m_size) reserve(m_capacity * 2 + 1);
-    value_type* new_data = static_cast<value_type*>(operator new(sizeof(value_type) * m_capacity));
-    value_type* constructed = new_data;
-    try {
-        constructed = std::uninitialized_move(m_data, m_data + pos, new_data);
-        new (static_cast<void*>(constructed)) value_type(std::move(value));
-        ++constructed;
-        constructed = std::uninitialized_move(m_data + pos, m_data + m_size, constructed);
-    } catch (...) {
-        size_type count = static_cast<size_type>(constructed - new_data);
-        for (size_type i = 0; i < count; ++i) {
-            new_data[i].~value_type();
-        }
-        operator delete(new_data);
-        throw;
+    for (size_type i = m_size; i > pos; --i) {
+        new (&m_data[i]) T(std::move(m_data[i - 1]));
     }
-
-    for (size_type i = 0; i < m_size; ++i) {
-        m_data[i].~value_type();
-    }
-    operator delete(m_data);
-
-    m_data = new_data;
+    new (&m_data[pos]) T(std::move(value));
     ++m_size;
 }
 
 template <typename T>
 void MyVector<T>::insert(size_type pos, size_t count, const T& value) {
-    if (m_size == 0 || pos == m_size) {
-        while (count--) push_back(value);
-        return;
+    T* new_data = nullptr;
+    size_type new_capac = m_capacity;
+    if (m_size + count >= m_capacity) {
+        new_data = static_cast<T*>(operator new(sizeof(T) * (m_size + count) * 2));
+        new_capac = (m_size + count) * 2;
+    } else {
+        new_data = static_cast<T*>(operator new(sizeof(T) * m_capacity));
     }
-    if (m_capacity <= m_size + count) reserve(m_size + count);
-    T* new_data = static_cast<T*>(operator new(sizeof(T) * m_capacity));
-    T* constructed = new_data;
+    for (size_type i = 0; i < pos; ++i) {
+        new (&new_data[i]) T(std::move(m_data[i]));
+    }
     try {
-        constructed = std::uninitialized_copy(m_data, m_data + pos, new_data);
-        for (size_type i = 0; i < count; ++i) {
-            new (constructed) T(value);
-            ++constructed;
-        }
-        constructed = std::uninitialized_copy(m_data + pos, m_data + m_size, constructed);
-
+        std::uninitialized_fill_n(new_data + pos, count, value);
     } catch (...) {
-        size_type count = static_cast<size_type>(constructed - new_data);
-        for (size_type i = 0; i < count; ++i) {
-            new_data[i].~value_type();
+        for (size_type i = 0; i < pos; ++i) {
+            new (&m_data[i]) T(std::move(new_data[i]));
         }
         operator delete(new_data);
         throw;
     }
 
-    for (size_type i = 0; i < m_size; ++i) m_data[i].~T();
-    operator delete(m_data);
+    for (size_type i = m_size + count - 1; i >= pos + count; --i) {
+        new (&new_data[i]) T(std::move(m_data[i - count]));
+    }
 
+    size_type tmp = m_size;
+    clear();
+    operator delete(m_data);
     m_data = new_data;
-    m_size += count;
+    m_size = tmp + count;
+    m_capacity = new_capac;
 }
+
+template <typename T>
+void MyVector<T>::erase(size_type pos) {
+    m_data[pos].~T();
+    for (size_type i = pos; i < m_size - 1; ++i) {
+        new (&m_data[i]) T(std::move(m_data[i + 1]));
+    }
+    --m_size;
+}
+
+template <typename T>
+void MyVector<T>::erase(size_type first, size_type last) {
+    for (size_type i = first; i < last; ++i) {
+        m_data[i].~T();
+    }
+    for (size_type i = first; i < m_size - last + first; ++i) {
+        new (&m_data[i]) T(std::move(m_data[i + last - first]));
+    }
+    m_size -= last - first;
+}
+
 
 template <typename T>
 void MyVector<T>::push_back( const T& value ) {
     if (m_size == m_capacity) reserve(m_capacity == 0 ? 1 : m_capacity * 2);
-    m_data[m_size] = value;
-    ++m_size;
-}
-
-template <typename T>
-template<typename... Args>
-void  MyVector<T>::emplace(size_type pos, Args&&... args ) {
-    if (m_size == 0 || pos == m_size) {
-        emplace_back(std::forward<Args>(args)...);
-        return;
-    }
-    if (m_capacity == m_size) reserve(m_capacity * 2 + 1);
-    value_type* new_data = static_cast<value_type*>(operator new(sizeof(value_type) * m_capacity));
-    value_type* constructed = new_data;
-    try {
-        constructed = std::uninitialized_move(m_data, m_data + pos, new_data);
-        new (static_cast<void*>(constructed)) value_type{std::forward<Args>(args)...};
-        ++constructed;
-        constructed = std::uninitialized_move(m_data + pos, m_data + m_size, constructed);
-    } catch (...) {
-        size_type count = static_cast<size_type>(constructed - new_data);
-        for (size_type i = 0; i < count; ++i) {
-            new_data[i].~value_type();
-        }
-        operator delete(new_data);
-        throw;
-    }
-
-    for (size_type i = 0; i < m_size; ++i) {
-        m_data[i].~value_type();
-    }
-    operator delete(m_data);
-
-    m_data = new_data;
+    new (&m_data[m_size]) T(value);
     ++m_size;
 }
 
 template <typename T>
 void MyVector<T>::push_back( T&& value ) {
     if (m_size == m_capacity) reserve(m_capacity == 0 ? 1 : m_capacity * 2);
-    m_data[m_size] = std::move(value);
+    new (&m_data[m_size]) T(std::move(value));
     ++m_size;
+}
+
+template <typename T>
+template<typename... Args>
+void  MyVector<T>::emplace(size_type pos, Args&&... args ) {
+    T* new_data = nullptr;
+    size_type new_capac = m_capacity;
+    if (m_size == m_capacity) {
+        new_data = static_cast<T*>(operator new(sizeof(T) * m_capacity * 2));
+        new_capac = m_size * 2;
+    } else {
+        new_data = static_cast<T*>(operator new(sizeof(T) * m_capacity));
+    }
+    for (size_type i = 0; i < pos; ++i) {
+        new (&new_data[i]) T(std::move(m_data[i]));
+    }
+    try {
+        new (&new_data[pos]) T(std::forward<Args>(args)...);
+    } catch (...) {
+        for (size_type i = 0; i < pos; ++i) {
+            new (&m_data[i]) T(std::move(m_data[i - 1]));
+        }
+        operator delete(new_data);
+        throw;
+    }
+    for (size_type i = m_size; i > pos; --i) {
+        new (&new_data[i]) T(std::move(new_data[i - 1]));
+    }
+    operator delete(m_data);
+    m_data = new_data;
+    ++m_size;
+    m_capacity = new_capac;
 }
 
 template <typename T>
 template <typename... Args>
-typename MyVector<T>::reference MyVector<T>::emplace_back( Args&&... args ) {
+void MyVector<T>::emplace_back( Args&&... args ) {
     if (m_size == m_capacity) reserve(m_capacity == 0 ? 1 : m_capacity * 2);
-    m_data[m_size] = value_type{std::forward<Args>(args)...};
+    new (&m_data[m_size]) T{std::forward<Args>(args)...};
     ++m_size;
-    return m_data[m_size - 1];
 }
 
 template <typename T>
 void MyVector<T>::pop_back() {
-    if (empty()) throw std::out_of_range{"Vector is empty"};
+    m_data[m_size - 1].~T();
     --m_size;
 }
 
 template <typename T>
-void MyVector<T>::resize( size_type count ) {
-    if (m_size == count) return;
-    else if (count < m_size) {
+void MyVector<T>::resize(size_type count, const T& value) {
+    if (count < m_size) {
         for (size_type i = count; i < m_size; ++i) {
             m_data[i].~T();
         }
-        m_size = count;
     }
     else if (count > m_size) {
         if (count > m_capacity) {
-            reserve(count * 2 + 1);
+            reserve(count);
         }
-        size_type i = m_size;
-        try {
-            for (; i < count; ++i) {
-                new (m_data + i) T();
-            }
-        } catch (...) {
-            for (size_type j = m_size; j < i; ++j) {
-                m_data[j].~T();
-            }
-            throw;
-        }
-
-        m_size = count;
+        std::uninitialized_fill_n(m_data + m_size, count - m_size, value);
     }
+    m_size = count;
 }
 
-template <typename T>
-void MyVector<T>::resize(size_type count, const T& value ) {
-    if (m_size == count) return;
-    else if (m_size > count) m_size = count;
-    else {
-        if (count >= m_capacity) reserve(count * 2 + 1);
-        for (size_type i = m_size; i < count; ++i) {
-            m_data[i] = value;
-        }
-        m_size = count;
-    }
-}
 
 template <typename T>
 void MyVector<T>::swap( MyVector& other ) noexcept {

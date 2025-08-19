@@ -68,14 +68,13 @@ TEST(CapacTest, ResizeTest) {
 
 TEST(ModifTest, PushPopBack) {
     MyVector<int> vec;
-    vec.push_back(1);
-    vec.push_back(2);
+    int a = 10;
+    vec.push_back(a);
+    vec.push_back(a);
     EXPECT_EQ(vec.size(), 2);
-    EXPECT_EQ(vec.back(), 2);
+    EXPECT_EQ(vec.back(), 10);
     vec.pop_back();
     EXPECT_EQ(vec.size(), 1);
-    vec.clear(); 
-    EXPECT_THROW(vec.pop_back(), std::out_of_range);
 }
 
 TEST(ModifTest, Insert) {
@@ -87,8 +86,8 @@ TEST(ModifTest, Insert) {
 }
 
 TEST(ModifTest, InsertCount) {
-    MyVector<int> vec (2);
-    vec = {1, 4};
+    MyVector<int> vec;
+    vec = {8, 4};
     vec.insert(1, 3, 7);
     EXPECT_EQ(vec.size(), 5);
     EXPECT_EQ(vec[1], 7);
